@@ -8,7 +8,7 @@ client = discord.Client(intents=intents)
 @client.event
 async def on_ready():
     print(f"Ulogovan kao {client.user}")
-    channel = client.get_channel(844879816196882462)
+    channel = client.get_channel(1193137115387678761)
     if channel and not client.voice_clients:
         vc = await channel.connect()
         url = "http://stream.radiostanica.com/live"
