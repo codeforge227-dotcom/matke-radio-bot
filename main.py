@@ -1,45 +1,57 @@
 import os
 import discord
-from discord import FFmpegOpusAudio
+from discord.ext import commands
+from discord import FFmpegPCMAudio
+import youtube_dl
 import asyncio
 
-# Bot token iz Railway env var
 TOKEN = os.getenv("TOKEN")
-
-# ID voice kanala gde bot ulazi
 VOICE_CHANNEL_ID = 1193137115387678761
 
-# Direktan radio stream koji radi
-RADIO_URL = "https://naxi128.streaming.rs:9152/;*.mp3"  # testiran, radi sa botom
-
-# Kreiramo client
 intents = discord.Intents.default()
-client = discord.Client(intents=intents)
+client = commands.Bot(command_prefix="!", intents=intents)
+
+# Tvoj YouTube live radio link
+MUSIC_URL = "https://www.youtube.com/live/8V5EWDtA474?si=saGuH_01iOB7juEw"
 
 @client.event
 async def on_ready():
     print(f"Ulogovan kao {client.user}")
-    
-    # Pronađi kanal
+
     channel = client.get_channel(VOICE_CHANNEL_ID)
     if channel is None:
         print("Voice kanal nije pronađen!")
         return
 
-    # Ako bot još nije u kanalu
-    if not client.voice_clients:
+    if not channel.guild.voice_client:  # ako bot još nije povezan
         vc = await channel.connect()
         print("Bot povezan u kanal. Pustam muziku...")
 
-        # Opcije za reconnect da stream ne stane
-        before_opts = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-        audio_source = FFmpegOpusAudio(RADIO_URL, before_options=before_opts)
+        # youtube_dl opcije
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'no_warnings': True,
+            'extractaudio': True,
+            'audioformat': "mp3",
+        }
 
-        vc.play(audio_source, after=lambda e: print("Stream završen", e))
+        # preuzimanje direktnog audio streama
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(MUSIC_URL, download=False)
+            url2 = info['url']
 
-        # Čuvamo petlju da bot ostane povezan i muzika se pušta
+        # pustanje muzike preko FFmpeg
+        ffmpeg_opts = {
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+            'options': '-vn'
+        }
+
+        vc.play(FFmpegPCMAudio(url2, **ffmpeg_opts))
+        print("Muzika se pušta...")
+
+        # čekanje dok se muzika pušta
         while vc.is_playing():
             await asyncio.sleep(1)
 
-# Start bota
 client.run(TOKEN)
