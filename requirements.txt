@@ -1,3 +1,4 @@
 discord.py[voice]
 pynacl
 discord.py
+yt-dlp

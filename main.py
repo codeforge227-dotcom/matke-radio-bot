@@ -2,7 +2,7 @@ import os
 import discord
 from discord.ext import commands
 from discord import FFmpegPCMAudio
-import youtube_dl
+import yt_dlp as youtube_dl  # nova zamena za youtube_dl
 import asyncio
 
 TOKEN = os.getenv("TOKEN")
@@ -23,11 +23,11 @@ async def on_ready():
         print("Voice kanal nije pronađen!")
         return
 
-    if not channel.guild.voice_client:  # ako bot još nije povezan
+    if not channel.guild.voice_client:
         vc = await channel.connect()
         print("Bot povezan u kanal. Pustam muziku...")
 
-        # youtube_dl opcije
+        # yt-dlp opcije
         ydl_opts = {
             'format': 'bestaudio/best',
             'quiet': True,
