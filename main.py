@@ -2,44 +2,66 @@ import os
 import discord
 from discord.ext import commands
 from discord import FFmpegPCMAudio
-import asyncio
+import yt_dlp
 
-# Tvoj bot token iz Railway env var
-TOKEN = os.getenv("TOKEN")
-
-# ID voice kanala gde bot ulazi
-VOICE_CHANNEL_ID = 1193137115387678761
-
-# Direktan TOP FM stream (128 kbps)
-RADIO_URL = "https://topfm128ssl.streaming.rs:9282/;stream.mp3"
+TOKEN = os.getenv("TOKEN")  # TOKEN mora biti u Environment Var na Railway
+PREFIX = "!"
 
 intents = discord.Intents.default()
-client = commands.Bot(command_prefix="!", intents=intents)
+intents.message_content = True  # da bot može čitati komande
+bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
-@client.event
+# FFmpeg opcije za reconnect (za dugotrajne streamove)
+ffmpeg_options = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn'
+}
+
+@bot.event
 async def on_ready():
-    print(f"Ulogovan kao {client.user}")
+    print(f"Ulogovan kao {bot.user}")
 
-    channel = client.get_channel(VOICE_CHANNEL_ID)
-    if channel is None:
-        print("Voice kanal nije pronađen!")
+@bot.command(name="play")
+async def play(ctx, *, url: str):
+    voice = ctx.author.voice
+    if not voice:
+        await ctx.send("Moraš biti u glasovnom kanalu da pustiš muziku!")
         return
 
-    if not channel.guild.voice_client:
-        vc = await channel.connect()
-        print("Povezan u kanal. Pustam TOP FM...")
+    channel = voice.channel
 
-        # FFmpeg opcije da stream ne stane
-        ffmpeg_opts = {
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-            'options': '-vn'
-        }
+    # Ako bot nije povezan, poveži ga
+    if not ctx.guild.voice_client:
+        await channel.connect()
 
-        vc.play(FFmpegPCMAudio(RADIO_URL, **ffmpeg_opts))
-        print("Muzika se pušta...")
+    vc = ctx.guild.voice_client
 
-        # Čuvamo petlju dok muzika svira
-        while vc.is_playing():
-            await asyncio.sleep(1)
+    # Ako već svira nešto, zaustavi
+    if vc.is_playing():
+        vc.stop()
 
-client.run(TOKEN)
+    # Preuzimanje direktnog audio URL‑a sa YouTube
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        audio_url = info['url']
+
+    source = FFmpegPCMAudio(audio_url, **ffmpeg_options)
+    vc.play(source)
+
+    await ctx.send(f"Pustam muziku 🎧: {url}")
+
+@bot.command(name="stop")
+async def stop(ctx):
+    vc = ctx.guild.voice_client
+    if vc and vc.is_connected():
+        await vc.disconnect()
+        await ctx.send("Bot je izašao iz glasovnog kanala.")
+    else:
+        await ctx.send("Bot nije povezan u kanal.")
+
+bot.run(TOKEN)
