@@ -11,7 +11,9 @@ async def on_ready():
     channel = client.get_channel(1193137115387678761)
     if channel and not client.voice_clients:
         vc = await channel.connect()
-        url = "https://streaming.hitfm.rs/hit.mp3"
+        # Direktan MP3 stream koji radi
+        url = "https://stream.playradio.rs:8001/play.mp3"
         vc.play(discord.FFmpegPCMAudio(url))
+        print("Pustam muziku...")
 
 client.run(token)
